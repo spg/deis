@@ -13,7 +13,7 @@ import requests
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TransactionTestCase
 from rest_framework.authtoken.models import Token
 
 from api.models import App
@@ -26,7 +26,7 @@ def mock_import_repository_task(*args, **kwargs):
     return resp
 
 
-class AppTest(TestCase):
+class AppTest(TransactionTestCase):
     """Tests creation of applications"""
 
     fixtures = ['tests.json']
@@ -266,6 +266,33 @@ class AppTest(TestCase):
         self.assertEquals(response.status_code, 400)
         self.assertEquals(response.data, {'detail': 'Support for admin commands '
                                                     'is not configured'})
+
+    def test_run_rc_output_not_empty(self):
+        """rc and output must not be empty when running a command
+        """
+        url = '/v1/apps'
+        body = {'id': 'autotest'}
+        response = self.client.post(url, json.dumps(body), content_type='application/json',
+                                    HTTP_AUTHORIZATION='token {}'.format(self.token))
+        self.assertEqual(response.status_code, 201)
+        app_id = response.data['id']  # noqa
+
+        # post a new build
+        body = {'image': 'autotest/example'}
+        url = '/v1/apps/{app_id}/builds'.format(**locals())
+        response = self.client.post(url, json.dumps(body), content_type='application/json',
+                                    HTTP_AUTHORIZATION='token {}'.format(self.token))
+        self.assertEqual(response.status_code, 201)
+
+        # test run
+        url = '/v1/apps/{app_id}/run'.format(**locals())
+        body = {'command': 'ls -al'}
+        response = self.client.post(url, json.dumps(body), content_type='application/json',
+                                    HTTP_AUTHORIZATION='token {}'.format(self.token))
+        self.assertEquals(response.status_code, 200)
+
+        self.assertIsNotNone(response.data['rc'])
+        self.assertIsNotNone(response.data['output'])
 
     def test_run_without_release_should_error(self):
         """

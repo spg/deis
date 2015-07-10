@@ -720,10 +720,10 @@ Make sure that the Controller URI is correct and the server is running.
                                   "/v1/apps/{}/run".format(app),
                                   json.dumps(body))
         if response.status_code == requests.codes.ok:
-            rc, output = json.loads(response.content)
-            sys.stdout.write(encode(output))
+            body = json.loads(response.content)
+            sys.stdout.write(encode(body['output']))
             sys.stdout.flush()
-            sys.exit(rc)
+            sys.exit(body['rc'])
         else:
             raise ResponseError(response)
 
